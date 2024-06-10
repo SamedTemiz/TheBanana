@@ -25,8 +25,8 @@ class MainActivity : AppCompatActivity() {
 
         sharedPreferences = getSharedPreferences("banana_pref", Context.MODE_PRIVATE)
 
-        scoreTextView = findViewById(R.id.scoreTextView)
-        bananaImageView = findViewById(R.id.bananaImageView)
+        scoreTextView = findViewById(R.id.txt_score)
+        bananaImageView = findViewById(R.id.img_banana)
         constraintLayout = findViewById(R.id.constraintLayout)
 
         score = sharedPreferences.getInt("score", 0)
