@@ -9,7 +9,7 @@
     android:id="@+id/constraintLayout"
     android:clickable="true"
     android:focusable="true"
-    android:background="#1faeaa">
+    android:background="@color/primary">
 
     <TextView
         android:id="@+id/txt_score"
@@ -28,8 +28,8 @@
         android:id="@+id/img_banana"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintWidth_percent="0.5"
-        app:layout_constraintHeight_percent="0.5"
+        app:layout_constraintWidth_percent="0.3"
+        app:layout_constraintHeight_percent="0.3"
         android:src="@drawable/banana"
         android:contentDescription="Banana Image"
         app:layout_constraintTop_toTopOf="parent"
@@ -48,11 +48,10 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp"
-        android:onClick="showResetDialog" />
+        android:layout_marginStart="16dp" />
 
     <ImageButton
-        android:id="@+id/changeColorButton"
+        android:id="@+id/btn_color"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:src="@drawable/ic_color"
@@ -61,21 +60,19 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
-        android:onClick="changeBackgroundColor" />
+        android:layout_marginEnd="16dp" />
 
-    <ImageButton
-        android:id="@+id/btn_info"
+    <ImageView
+        android:id="@+id/img_fun"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:src="@drawable/ic_info"
+        android:clickable="true"
+        android:focusable="true"
         android:scaleType="fitXY"
-        android:background="@null"
-        android:contentDescription="Reset Score"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginBottom="16dp"
-        android:layout_marginStart="16dp"
-        android:onClick="showResetDialog" />
+        app:layout_constraintTop_toBottomOf="@+id/img_banana" />
 </androidx.constraintlayout.widget.ConstraintLayout>
 
