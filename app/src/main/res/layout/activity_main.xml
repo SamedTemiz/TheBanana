@@ -18,7 +18,7 @@
         android:layout_marginBottom="8dp"
         android:text="TAP BANANA OR EMOJI"
         android:textColor="@color/white"
-        android:textSize="32sp"
+        android:textSize="34sp"
         android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@id/img_banana"
         app:layout_constraintEnd_toEndOf="parent"
