@@ -1,4 +1,4 @@
-package com.timrashard.banana
+package com.timrashard.banana.data
 
 import android.content.Context
 import android.util.Log

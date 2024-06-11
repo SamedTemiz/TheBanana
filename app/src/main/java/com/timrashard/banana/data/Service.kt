@@ -1,5 +1,6 @@
-package com.timrashard.banana
+package com.timrashard.banana.data
 
+import com.timrashard.banana.data.FileModel
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.http.GET

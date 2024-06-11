@@ -1,4 +1,4 @@
-package com.timrashard.banana
+package com.timrashard.banana.data
 
 data class FileModel (
     val name: String,
