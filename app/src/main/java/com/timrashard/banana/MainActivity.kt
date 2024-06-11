@@ -215,7 +215,7 @@ class MainActivity : AppCompatActivity() {
                 0
             }
 
-            val newTopMargin = if (parentHeight > imgHeight) {
+            val newBottomMargin = if (parentHeight > imgHeight) {
                 random.nextInt(parentHeight - imgHeight)
             } else {
                 0
@@ -224,16 +224,16 @@ class MainActivity : AppCompatActivity() {
             constraintSet.connect(
                 R.id.img_fun,
                 ConstraintSet.START,
-                R.id.constraintLayout,
+                ConstraintSet.PARENT_ID,
                 ConstraintSet.START,
                 newStartMargin
             )
             constraintSet.connect(
                 R.id.img_fun,
-                ConstraintSet.TOP,
-                R.id.constraintLayout,
-                ConstraintSet.TOP,
-                newTopMargin
+                ConstraintSet.BOTTOM,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.BOTTOM,
+                newBottomMargin
             )
 
             constraintSet.applyTo(layout)
@@ -241,5 +241,4 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "setRandomImagePosition() hatası: ", e)
         }
     }
-
 }
