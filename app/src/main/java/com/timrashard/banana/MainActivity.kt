@@ -50,6 +50,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        init()
+        event()
+    }
+
     private fun init() {
         try {
             sharedPreferences = getSharedPreferences("banana_pref", Context.MODE_PRIVATE)
@@ -59,6 +65,8 @@ class MainActivity : AppCompatActivity() {
             layout.post {
                 layoutWidth = layout.width
                 layoutHeight = layout.height
+
+                loadImagePosition()
             }
 
             txtScore = findViewById(R.id.txt_score)
@@ -104,18 +112,6 @@ class MainActivity : AppCompatActivity() {
         score += boost ?: 1
         txtScore.text = "$score"
         saveScore(score)
-    }
-
-    private fun saveScore(score: Long) {
-        val editor = sharedPreferences.edit()
-        editor.putLong("score", score)
-        editor.apply()
-    }
-
-    private fun saveColor(color: Int) {
-        val editor = sharedPreferences.edit()
-        editor.putInt("color", color)
-        editor.apply()
     }
 
     private fun resetScore() {
@@ -179,7 +175,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun emojiSetup() {
         setRandomEmoji()
-        setRandomImagePosition()
+        loadImagePosition()
         imgFun.visibility = View.VISIBLE
     }
 
@@ -195,6 +191,39 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e("MainActivity", "setRandomEmoji() hatası: ", e)
+        }
+    }
+
+    private fun loadImagePosition() {
+        try {
+            val startMargin = sharedPreferences.getInt("imgFun_startMargin", -1)
+            val bottomMargin = sharedPreferences.getInt("imgFun_bottomMargin", -1)
+
+            if (startMargin != -1 && bottomMargin != -1) {
+                val constraintSet = ConstraintSet()
+                constraintSet.clone(layout)
+
+                constraintSet.connect(
+                    R.id.img_fun,
+                    ConstraintSet.START,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.START,
+                    startMargin
+                )
+                constraintSet.connect(
+                    R.id.img_fun,
+                    ConstraintSet.BOTTOM,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.BOTTOM,
+                    bottomMargin
+                )
+
+                constraintSet.applyTo(layout)
+            } else {
+                setRandomImagePosition()
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "loadImagePosition() hatası: ", e)
         }
     }
 
@@ -237,8 +266,29 @@ class MainActivity : AppCompatActivity() {
             )
 
             constraintSet.applyTo(layout)
+
+            saveImagePosition(newStartMargin, newBottomMargin)
         } catch (e: Exception) {
             Log.e("MainActivity", "setRandomImagePosition() hatası: ", e)
         }
+    }
+
+    private fun saveScore(score: Long) {
+        val editor = sharedPreferences.edit()
+        editor.putLong("score", score)
+        editor.apply()
+    }
+
+    private fun saveColor(color: Int) {
+        val editor = sharedPreferences.edit()
+        editor.putInt("color", color)
+        editor.apply()
+    }
+
+    private fun saveImagePosition(startMargin: Int, bottomMargin: Int) {
+        val editor = sharedPreferences.edit()
+        editor.putInt("imgFun_startMargin", startMargin)
+        editor.putInt("imgFun_bottomMargin", bottomMargin)
+        editor.apply()
     }
 }
