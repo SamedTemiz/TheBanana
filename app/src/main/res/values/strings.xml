@@ -1,3 +1,25 @@
 <resources>
     <string name="app_name">The Banana</string>
+    <string name="tap_banana_or_emoji">TAP BANANA OR EMOJI</string>
+    <string name="banana_image">Banana</string>
+    <string name="reset_score">Reset score</string>
+    <string name="change_background_color">Change background color</string>
+    <string name="bonus_emoji">Bonus emoji</string>
+    <string name="privacy_options">Privacy options</string>
+    <string name="ad_loading">Preparing reward…</string>
+    <string name="ad_not_ready">The reward video is not ready yet. Please try again shortly.</string>
+    <string name="boost_earned">2× score boost activated for 60 seconds!</string>
+    <string name="boost_title">2× SCORE BOOST</string>
+    <string name="boost_active_title">2× BOOST ACTIVE</string>
+    <string name="boost_remaining">%1$d seconds remaining</string>
+    <string name="watch_ad_details">Watch a short ad · Active for 60 seconds</string>
+    <string name="ad_unavailable_retry">Not available right now · Tap to retry</string>
+    <string name="rarity_common">COMMON</string>
+    <string name="rarity_rare">RARE</string>
+    <string name="rarity_epic">EPIC</string>
+    <string name="rarity_legendary">LEGENDARY</string>
+    <string name="emoji_rarity_reward">%1$s · +%2$d</string>
+    <string name="emoji_reward_earned">+%1$d!</string>
+    <string name="emoji_combo">COMBO %1$d · ×%2$d</string>
+    <string name="emoji_target_description">%1$s bonus target, %2$d points</string>
 </resources>

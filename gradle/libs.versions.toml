@@ -1,6 +1,6 @@
 [versions]
-agp = "8.4.1"
-kotlin = "1.9.0"
+agp = "8.13.2"
+kotlin = "2.3.20"
 coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -9,6 +9,8 @@ appcompat = "1.7.0"
 material = "1.12.0"
 activity = "1.9.0"
 constraintlayout = "2.1.4"
+googleMobileAds = "25.4.0"
+userMessagingPlatform = "4.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -22,7 +24,9 @@ androidx-constraintlayout = { group = "androidx.constraintlayout", name = "const
 retrofit2 = {group = "com.squareup.retrofit2", name = "retrofit", version = "2.10.0"}
 retrofit2-converter-gson = {group = "com.squareup.retrofit2", name = "converter-gson", version = "2.10.0"}
 kotlinx-coroutines = {group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version = "1.7.3"}
-glide = {group = "com.github.bumptech.glide", name = "glide", version = "4.13.2"}
+glide = {group = "com.github.bumptech.glide", name = "glide", version = "4.16.0"}
+google-mobile-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "googleMobileAds" }
+google-user-messaging-platform = { group = "com.google.android.ump", name = "user-messaging-platform", version.ref = "userMessagingPlatform" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

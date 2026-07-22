@@ -5,17 +5,34 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.ump.ConsentInformation
+import com.google.android.ump.ConsentRequestParameters
+import com.google.android.ump.UserMessagingPlatform
 import com.timrashard.banana.data.AssetManager
+import com.timrashard.banana.game.EmojiGameController
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.random.Random
@@ -29,14 +46,32 @@ class MainActivity : AppCompatActivity() {
     private lateinit var imgFun: ImageView
     private lateinit var btnColor: ImageButton
     private lateinit var btnReset: ImageButton
+    private lateinit var btnPrivacy: ImageButton
+    private lateinit var btnRewardedAd: MaterialCardView
+    private lateinit var txtRewardTitle: TextView
+    private lateinit var txtRewardSubtitle: TextView
+    private lateinit var boostProgress: LinearProgressIndicator
     private lateinit var sharedPreferences: SharedPreferences
     private var score: Long = 0
-    private var layoutWidth: Int = 0
-    private var layoutHeight: Int = 0
     private val random = Random.Default
 
     private lateinit var assetManager: AssetManager
     private lateinit var emojiFiles: List<File>
+    private lateinit var emojiGameController: EmojiGameController
+    private lateinit var consentInformation: ConsentInformation
+    private var rewardedAd: RewardedAd? = null
+    private var isRewardedAdLoading = false
+    private var adsInitializationStarted = false
+    private var boostEndsAtElapsedRealtime = 0L
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val boostTicker = object : Runnable {
+        override fun run() {
+            updateRewardButton()
+            if (isBoostActive()) {
+                mainHandler.postDelayed(this, BOOST_TICK_MILLIS)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,15 +80,10 @@ class MainActivity : AppCompatActivity() {
             init()
             event()
             checkAndDownloadAssets()
+            requestConsentAndInitializeAds()
         } catch (e: Exception) {
             Log.e("MainActivity", "onCreate() hatası: ", e)
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        init()
-        event()
     }
 
     private fun init() {
@@ -62,18 +92,45 @@ class MainActivity : AppCompatActivity() {
             assetManager = AssetManager(this)
 
             layout = findViewById(R.id.constraintLayout)
-            layout.post {
-                layoutWidth = layout.width
-                layoutHeight = layout.height
-
-                loadImagePosition()
-            }
-
             txtScore = findViewById(R.id.txt_score)
             imgBanana = findViewById(R.id.img_banana)
             imgFun = findViewById(R.id.img_fun)
             btnColor = findViewById(R.id.btn_color)
             btnReset = findViewById(R.id.btn_reset)
+            btnPrivacy = findViewById(R.id.btn_privacy)
+            btnRewardedAd = findViewById(R.id.btn_rewarded_ad)
+            txtRewardTitle = findViewById(R.id.txt_reward_title)
+            txtRewardSubtitle = findViewById(R.id.txt_reward_subtitle)
+            boostProgress = findViewById(R.id.boost_progress)
+            val emojiStatus: TextView = findViewById(R.id.txt_emoji_status)
+            val comboStatus: TextView = findViewById(R.id.txt_combo)
+            emojiGameController = EmojiGameController(
+                activity = this,
+                root = layout,
+                target = imgFun,
+                rarityStatus = emojiStatus,
+                comboStatus = comboStatus,
+                protectedViews = listOf(
+                    txtScore,
+                    emojiStatus,
+                    comboStatus,
+                    imgBanana,
+                    btnReset,
+                    btnColor,
+                    btnPrivacy,
+                    btnRewardedAd
+                ),
+                onReward = ::incrementScore
+            )
+
+            ViewCompat.setOnApplyWindowInsetsListener(layout) { view, windowInsets ->
+                val insets = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or
+                        WindowInsetsCompat.Type.displayCutout()
+                )
+                view.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+                windowInsets
+            }
 
 
             val color = sharedPreferences.getInt("color", getColor(R.color.primary))
@@ -82,7 +139,6 @@ class MainActivity : AppCompatActivity() {
             score = sharedPreferences.getLong("score", 0)
             txtScore.text = "$score"
 
-            checkAndDownloadAssets()
         } catch (e: Exception) {
             Log.e("MainActivity", "init() hatası: ", e)
         }
@@ -101,17 +157,166 @@ class MainActivity : AppCompatActivity() {
             changeBackgroundColor()
         }
 
-        imgFun.setOnClickListener {
-            incrementScore(5)
-            setRandomEmoji()
-            setRandomImagePosition()
+        btnRewardedAd.setOnClickListener {
+            showRewardedAd()
+        }
+
+        btnPrivacy.setOnClickListener {
+            UserMessagingPlatform.showPrivacyOptionsForm(this) { formError ->
+                if (formError != null) {
+                    Log.w(TAG, "Privacy options form error: ${formError.message}")
+                }
+                updatePrivacyButton()
+                initializeAdsIfAllowed()
+            }
         }
     }
 
     private fun incrementScore(boost: Long? = null) {
-        score += boost ?: 1
+        val baseScore = boost ?: 1
+        val multiplier = if (isBoostActive()) BOOST_MULTIPLIER else 1L
+        score += baseScore * multiplier
         txtScore.text = "$score"
         saveScore(score)
+    }
+
+    private fun requestConsentAndInitializeAds() {
+        consentInformation = UserMessagingPlatform.getConsentInformation(this)
+        val requestParameters = ConsentRequestParameters.Builder().build()
+
+        consentInformation.requestConsentInfoUpdate(
+            this,
+            requestParameters,
+            {
+                UserMessagingPlatform.loadAndShowConsentFormIfRequired(this) { formError ->
+                    if (formError != null) {
+                        Log.w(TAG, "Consent form error: ${formError.message}")
+                    }
+                    updatePrivacyButton()
+                    initializeAdsIfAllowed()
+                }
+                updatePrivacyButton()
+                initializeAdsIfAllowed()
+            },
+            { requestError ->
+                Log.w(TAG, "Consent update error: ${requestError.message}")
+                updatePrivacyButton()
+                initializeAdsIfAllowed()
+            }
+        )
+    }
+
+    private fun initializeAdsIfAllowed() {
+        if (!consentInformation.canRequestAds() || adsInitializationStarted) return
+
+        adsInitializationStarted = true
+        MobileAds.initialize(this) {
+            runOnUiThread { loadRewardedAd() }
+        }
+    }
+
+    private fun loadRewardedAd() {
+        if (!::consentInformation.isInitialized ||
+            !consentInformation.canRequestAds() ||
+            !adsInitializationStarted
+        ) return
+        if (isRewardedAdLoading || rewardedAd != null) return
+
+        isRewardedAdLoading = true
+        updateRewardButton()
+        RewardedAd.load(
+            this,
+            BuildConfig.ADMOB_REWARDED_AD_UNIT_ID,
+            AdRequest.Builder().build(),
+            object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedAd) {
+                    isRewardedAdLoading = false
+                    rewardedAd = ad
+                    updateRewardButton()
+                }
+
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    isRewardedAdLoading = false
+                    rewardedAd = null
+                    Log.w(TAG, "Rewarded ad failed to load: ${error.message}")
+                    updateRewardButton()
+                }
+            }
+        )
+    }
+
+    private fun showRewardedAd() {
+        if (isBoostActive()) return
+        val ad = rewardedAd
+        if (ad == null) {
+            Toast.makeText(this, R.string.ad_not_ready, Toast.LENGTH_SHORT).show()
+            loadRewardedAd()
+            return
+        }
+
+        rewardedAd = null
+        updateRewardButton()
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                loadRewardedAd()
+            }
+
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                Log.w(TAG, "Rewarded ad failed to show: ${error.message}")
+                loadRewardedAd()
+            }
+        }
+        ad.show(this) {
+            boostEndsAtElapsedRealtime = SystemClock.elapsedRealtime() + BOOST_DURATION_MILLIS
+            Toast.makeText(this, R.string.boost_earned, Toast.LENGTH_SHORT).show()
+            mainHandler.removeCallbacks(boostTicker)
+            mainHandler.post(boostTicker)
+        }
+    }
+
+    private fun isBoostActive(): Boolean =
+        SystemClock.elapsedRealtime() < boostEndsAtElapsedRealtime
+
+    private fun updateRewardButton() {
+        if (isBoostActive()) {
+            val remainingMillis =
+                boostEndsAtElapsedRealtime - SystemClock.elapsedRealtime()
+            val secondsRemaining = (remainingMillis + 999L) / 1_000L
+            val progress = ((remainingMillis * 100L) / BOOST_DURATION_MILLIS)
+                .toInt()
+                .coerceIn(0, 100)
+            btnRewardedAd.isClickable = false
+            btnRewardedAd.alpha = 1f
+            txtRewardTitle.setText(R.string.boost_active_title)
+            txtRewardSubtitle.text = getString(R.string.boost_remaining, secondsRemaining)
+            boostProgress.visibility = View.VISIBLE
+            boostProgress.setProgressCompat(progress, true)
+            return
+        }
+
+        boostProgress.visibility = View.GONE
+        txtRewardTitle.setText(R.string.boost_title)
+        btnRewardedAd.alpha = 1f
+        if (rewardedAd != null) {
+            btnRewardedAd.isClickable = true
+            txtRewardSubtitle.setText(R.string.watch_ad_details)
+        } else {
+            btnRewardedAd.isClickable = adsInitializationStarted && !isRewardedAdLoading
+            txtRewardSubtitle.setText(
+                if (adsInitializationStarted && !isRewardedAdLoading) {
+                    R.string.ad_unavailable_retry
+                } else {
+                    R.string.ad_loading
+                }
+            )
+        }
+    }
+
+    private fun updatePrivacyButton() {
+        btnPrivacy.visibility =
+            if (consentInformation.privacyOptionsRequirementStatus ==
+                ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED
+            ) View.VISIBLE else View.GONE
     }
 
     private fun resetScore() {
@@ -174,103 +379,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun emojiSetup() {
-        setRandomEmoji()
-        loadImagePosition()
-        imgFun.visibility = View.VISIBLE
-    }
-
-    private fun setRandomEmoji() {
-        try {
-            if (emojiFiles.isNotEmpty()) {
-                val randomIndex = Random.nextInt(emojiFiles.size)
-                val randomEmojiFile = emojiFiles[randomIndex]
-
-                Glide.with(this)
-                    .load(randomEmojiFile)
-                    .into(imgFun)
-            }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "setRandomEmoji() hatası: ", e)
-        }
-    }
-
-    private fun loadImagePosition() {
-        try {
-            val startMargin = sharedPreferences.getInt("imgFun_startMargin", -1)
-            val bottomMargin = sharedPreferences.getInt("imgFun_bottomMargin", -1)
-
-            if (startMargin != -1 && bottomMargin != -1) {
-                val constraintSet = ConstraintSet()
-                constraintSet.clone(layout)
-
-                constraintSet.connect(
-                    R.id.img_fun,
-                    ConstraintSet.START,
-                    ConstraintSet.PARENT_ID,
-                    ConstraintSet.START,
-                    startMargin
-                )
-                constraintSet.connect(
-                    R.id.img_fun,
-                    ConstraintSet.BOTTOM,
-                    ConstraintSet.PARENT_ID,
-                    ConstraintSet.BOTTOM,
-                    bottomMargin
-                )
-
-                constraintSet.applyTo(layout)
-            } else {
-                setRandomImagePosition()
-            }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "loadImagePosition() hatası: ", e)
-        }
-    }
-
-    private fun setRandomImagePosition() {
-        try {
-            val constraintSet = ConstraintSet()
-            constraintSet.clone(layout)
-
-            val parentWidth = layout.width
-            val parentHeight = layout.height
-
-            val imgWidth = imgFun.width
-            val imgHeight = imgFun.height
-
-            val newStartMargin = if (parentWidth > imgWidth) {
-                random.nextInt(parentWidth - imgWidth)
-            } else {
-                0
-            }
-
-            val newBottomMargin = if (parentHeight > imgHeight) {
-                random.nextInt(parentHeight - imgHeight)
-            } else {
-                0
-            }
-
-            constraintSet.connect(
-                R.id.img_fun,
-                ConstraintSet.START,
-                ConstraintSet.PARENT_ID,
-                ConstraintSet.START,
-                newStartMargin
-            )
-            constraintSet.connect(
-                R.id.img_fun,
-                ConstraintSet.BOTTOM,
-                ConstraintSet.PARENT_ID,
-                ConstraintSet.BOTTOM,
-                newBottomMargin
-            )
-
-            constraintSet.applyTo(layout)
-
-            saveImagePosition(newStartMargin, newBottomMargin)
-        } catch (e: Exception) {
-            Log.e("MainActivity", "setRandomImagePosition() hatası: ", e)
-        }
+        emojiGameController.start(emojiFiles)
     }
 
     private fun saveScore(score: Long) {
@@ -285,10 +394,32 @@ class MainActivity : AppCompatActivity() {
         editor.apply()
     }
 
-    private fun saveImagePosition(startMargin: Int, bottomMargin: Int) {
-        val editor = sharedPreferences.edit()
-        editor.putInt("imgFun_startMargin", startMargin)
-        editor.putInt("imgFun_bottomMargin", bottomMargin)
-        editor.apply()
+    override fun onStart() {
+        super.onStart()
+        if (::emojiGameController.isInitialized) {
+            emojiGameController.resume()
+        }
+    }
+
+    override fun onStop() {
+        if (::emojiGameController.isInitialized) {
+            emojiGameController.pause()
+        }
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(boostTicker)
+        if (::emojiGameController.isInitialized) {
+            emojiGameController.pause()
+        }
+        super.onDestroy()
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
+        private const val BOOST_DURATION_MILLIS = 60_000L
+        private const val BOOST_TICK_MILLIS = 1_000L
+        private const val BOOST_MULTIPLIER = 2L
     }
 }

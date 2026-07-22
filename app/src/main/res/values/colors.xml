@@ -3,4 +3,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="primary">#FF1faeaa</color>
+    <color name="rarity_common">#FFFFFFFF</color>
+    <color name="rarity_rare">#FF80D8FF</color>
+    <color name="rarity_epic">#FFD58CFF</color>
+    <color name="rarity_legendary">#FFFFD54F</color>
 </resources>
